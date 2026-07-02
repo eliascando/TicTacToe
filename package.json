@@ -1,0 +1,22 @@
+{
+  "name": "tictactoe-online",
+  "version": "1.0.0",
+  "description": "Juego de Tres en Raya (TicTacToe) con multiplayer online en tiempo real",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "tictactoe",
+    "tres-en-raya",
+    "multiplayer",
+    "socket.io"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  }
+}
