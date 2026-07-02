@@ -2,3 +2,9 @@ node_modules/
 npm-debug.log*
 .env
 .DS_Store
+
+# SQLite database files (runtime data)
+apps/server/data/
+*.db
+*.db-shm
+*.db-wal
