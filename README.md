@@ -64,12 +64,40 @@ Copia `.env.example` a `.env`. Las más importantes:
 La app necesita un **proceso Node persistente** porque usa **WebSockets (Socket.IO)** y
 mantiene el emparejamiento/las salas en memoria, además de **SQLite** en disco.
 
-### Opción recomendada: Render (experiencia tipo Vercel)
+### Despliegue GRATIS (recomendado): Render + Postgres
 
-El repo incluye un `Dockerfile` y un blueprint `render.yaml`. En [Render](https://render.com)
-elige **New → Blueprint**, apunta a este repositorio y se creará un web service con
-`JWT_SECRET` autogenerado y un disco persistente para la base de datos. Otras plataformas
-equivalentes: **Railway**, **Fly.io**, **Google Cloud Run** o cualquier VPS.
+La forma más rápida y **gratis** (una sola instancia, sin tarjeta) es **Render**
+(web service) con **Postgres** como base de datos persistente. El repo ya trae
+`Dockerfile` y `render.yaml`.
+
+Pasos:
+1. Sube el repo a GitHub.
+2. En [Render](https://render.com): **New → Blueprint** y selecciona tu repo. El
+   `render.yaml` crea el web service (Docker) + un Postgres, y autogenera `JWT_SECRET`.
+3. Espera al deploy y abre la URL `*.onrender.com`. ¡Listo!
+
+Detalles del plan gratis (importantes):
+- El web service **soporta WebSockets**, pero se **duerme tras 15 min** sin tráfico
+  (arranque en frío ~1 min) y su disco es **efímero** → por eso usamos **Postgres**
+  (persistente), no SQLite.
+- El **Postgres gratis de Render caduca a los 30 días**. Para algo más duradero, usa
+  **[Neon](https://neon.com)** (Postgres gratis permanente, sin tarjeta): crea la base,
+  copia su cadena de conexión y ponla en la variable `DATABASE_URL` del servicio
+  (y elimina el bloque `databases`/`fromDatabase` del `render.yaml`).
+- El plan gratis es de **una sola instancia** (no necesita Redis). Para **escalar**
+  horizontalmente necesitas instancias de pago + **Redis** (p. ej. **[Upstash](https://upstash.com)**,
+  free tier) en `REDIS_URL`.
+
+Comparativa rápida de opciones gratis (2026):
+
+| Componente | Gratis recomendado | Notas |
+| ---------- | ------------------ | ----- |
+| App (Node + WebSocket) | **Render** web service free | Se duerme a los 15 min; WebSockets OK |
+| Base de datos | **Neon** (o Render Postgres) | Neon: permanente; Render: caduca a 30 días |
+| Redis (solo si escalas) | **Upstash** free | No hace falta con una sola instancia |
+
+> Nota: **Fly.io ya no tiene plan gratuito permanente** (solo $5 de crédito de prueba).
+> Railway tampoco es gratis a largo plazo. Otras opciones de pago sencillas: Railway, Fly.io, Google Cloud Run o un VPS.
 
 ```bash
 # Local con Docker (igual que en producción):

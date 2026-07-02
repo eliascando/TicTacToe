@@ -1,6 +1,20 @@
-# Despliegue "un clic" en Render (https://render.com) como un ÚNICO servicio.
-# Render ofrece una experiencia tipo Vercel pero con un proceso Node persistente,
-# necesario para WebSockets (Socket.IO) y para el matchmaking en memoria.
+# Despliegue GRATIS en Render (https://render.com) como un único servicio.
+# Render → New → Blueprint → apunta a este repo. Crea el web service + Postgres.
+#
+# Notas del plan gratuito:
+# - El web service soporta WebSockets, pero se "duerme" tras 15 min sin tráfico
+#   (arranque en frío ~1 min) y su disco es efímero (por eso NO usamos SQLite:
+#   usamos Postgres, que sí persiste).
+# - El Postgres gratuito de Render EXPIRA a los 30 días. Para algo más duradero,
+#   crea un Postgres gratis en Neon (https://neon.com) y pon su cadena de conexión
+#   en la variable DATABASE_URL (borra el bloque `databases` y el `fromDatabase`).
+# - El plan gratuito es de UNA sola instancia (sin Redis). Para escalar a varias
+#   instancias necesitas plan de pago + Redis (p. ej. Upstash) en REDIS_URL.
+
+databases:
+  - name: ttt-db
+    plan: free
+
 services:
   - type: web
     name: tres-en-raya-online
@@ -15,9 +29,10 @@ services:
         value: 3000
       - key: JWT_SECRET
         generateValue: true # Render genera un secreto seguro automáticamente
-      - key: DB_FILE
-        value: /app/data/tictactoe.db
-    disk:
-      name: data
-      mountPath: /app/data # Persiste la base de datos SQLite entre despliegues
-      sizeGB: 1
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ttt-db
+          property: connectionString
+      # Para escalar horizontalmente (plan de pago), añade Redis:
+      # - key: REDIS_URL
+      #   value: rediss://default:TU_TOKEN@TU-DB.upstash.io:6379
