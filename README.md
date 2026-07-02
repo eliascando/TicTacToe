@@ -87,6 +87,39 @@ proceso Node persistente (Render/Railway/Fly/Cloud Run) como se indica arriba. S
 futuro se quisiera usar Vercel, habría que migrar el tiempo real a un servicio externo
 (p. ej. Ably/Pusher) y SQLite a una base de datos gestionada.
 
+## Escalabilidad (horizontal)
+
+Por defecto la app corre como **una sola instancia** (SQLite + estado en memoria),
+ideal para desarrollo. Para **escalar horizontalmente** a varias instancias detrás
+de un balanceador, define dos variables de entorno y el código cambia de modo
+automáticamente (sin tocar la lógica):
+
+- `DATABASE_URL` → usa **Postgres** como base de datos **compartida** (usuarios, ranking, logros, historial).
+- `REDIS_URL` → activa el **adaptador de Socket.IO** en Redis y mueve la **cola de matchmaking y el estado de las salas** a Redis (con locks distribuidos), de modo que dos jugadores conectados a **instancias distintas** pueden emparejarse y jugar entre sí.
+
+```bash
+# Ejemplo local con dos instancias compartiendo Postgres + Redis:
+DATABASE_URL=postgres://ttt:ttt@localhost:5432/ttt REDIS_URL=redis://localhost:6379 \
+  JWT_SECRET=xxxx INSTANCE_ID=app1 PORT=3001 npm start
+DATABASE_URL=postgres://ttt:ttt@localhost:5432/ttt REDIS_URL=redis://localhost:6379 \
+  JWT_SECRET=xxxx INSTANCE_ID=app2 PORT=3002 npm start
+```
+
+### Topología escalable con Docker Compose
+
+El repo incluye `docker-compose.yml` y `deploy/nginx.conf` con una topología de
+referencia: **2 réplicas de la app + Postgres + Redis + nginx** (balanceador con
+afinidad de sesión `ip_hash` y soporte WebSocket).
+
+```bash
+docker compose up --build   # app en http://localhost:8080
+```
+
+Notas de escalado:
+- El balanceador usa **sticky sessions** (`ip_hash`) porque el handshake de Socket.IO debe mantenerse en la misma instancia; los mensajes entre instancias viajan por Redis.
+- Postgres usa un **advisory lock** al crear el esquema para evitar carreras de migración cuando varias instancias arrancan a la vez.
+- Las escrituras de partidas se hacen en **transacción** con bloqueo de fila (`SELECT ... FOR UPDATE`) para evitar actualizaciones perdidas del ranking.
+
 ## Seguridad
 
 - Contraseñas con **bcrypt** (12 rondas); nunca se exponen los hashes.

@@ -1,0 +1,72 @@
+# Topología escalable de ejemplo: 2 instancias de la app detrás de un
+# balanceador nginx, con Postgres (DB compartida) y Redis (adaptador de
+# Socket.IO + cola/salas de matchmaking compartidas).
+#
+#   docker compose up --build
+#   # App disponible en http://localhost:8080
+#
+# Para añadir más réplicas, duplica el bloque appN y añádelo a deploy/nginx.conf.
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ttt
+      POSTGRES_PASSWORD: ttt
+      POSTGRES_DB: ttt
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ttt"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app1: &app
+    build: .
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      INSTANCE_ID: app1
+      DATABASE_URL: postgres://ttt:ttt@db:5432/ttt
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-cambia-esto-en-produccion-por-un-secreto-fuerte}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    expose:
+      - "3000"
+
+  app2:
+    <<: *app
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      INSTANCE_ID: app2
+      DATABASE_URL: postgres://ttt:ttt@db:5432/ttt
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-cambia-esto-en-produccion-por-un-secreto-fuerte}
+
+  lb:
+    image: nginx:1.27-alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app1
+      - app2
+
+volumes:
+  pgdata:
