@@ -1,0 +1,11 @@
+{
+  "name": "@ttt/shared",
+  "version": "1.0.0",
+  "description": "Lógica de juego compartida: tablero, ELO, XP/niveles y definiciones de logros",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test"
+  },
+  "license": "MIT"
+}

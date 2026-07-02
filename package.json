@@ -1,0 +1,19 @@
+{
+  "name": "tictactoe-monorepo",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Tres en Raya online: monorepo desplegable como un único servicio (auth, matchmaking por nivel, ELO, XP, logros)",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "start": "npm start --workspace @ttt/server",
+    "dev": "npm run dev --workspace @ttt/server",
+    "test": "npm test --workspace @ttt/shared"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}

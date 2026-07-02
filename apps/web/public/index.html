@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tres en Raya Online</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Loading -->
+    <div id="loading" class="screen center">
+      <div class="spinner"></div>
+    </div>
+
+    <!-- Auth -->
+    <section id="auth" class="screen hidden">
+      <div class="brand">
+        <h1 class="logo">Tres<span>en</span>Raya</h1>
+        <p class="tagline">Multijugador competitivo · Rankings · Logros</p>
+      </div>
+      <div class="card auth-card">
+        <div class="tabs">
+          <button class="tab active" data-tab="login">Entrar</button>
+          <button class="tab" data-tab="register">Registrarse</button>
+        </div>
+        <form id="authForm" autocomplete="off">
+          <label class="field">
+            <span>Usuario</span>
+            <input id="username" type="text" maxlength="20" placeholder="tu_usuario" required />
+          </label>
+          <label class="field">
+            <span>Contraseña</span>
+            <input id="password" type="password" maxlength="100" placeholder="mínimo 8 caracteres" required />
+          </label>
+          <p id="authError" class="error" role="alert"></p>
+          <button id="authSubmit" type="submit" class="btn btn--primary btn--block">Entrar</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Main app -->
+    <section id="main" class="screen hidden">
+      <header class="topbar">
+        <h1 class="logo logo--sm">Tres<span>en</span>Raya</h1>
+        <div class="topbar__user">
+          <span class="badge badge--level" id="navLevel">Nv 1</span>
+          <span class="badge badge--rating" id="navRating">1000</span>
+          <span class="nav-username" id="navUsername">—</span>
+          <button id="logoutBtn" class="btn btn--ghost btn--sm">Salir</button>
+        </div>
+      </header>
+
+      <!-- Home -->
+      <div id="home" class="view">
+        <div class="grid">
+          <div class="card profile-card">
+            <div class="profile-head">
+              <div class="avatar" id="avatar">?</div>
+              <div>
+                <h2 id="profileName">—</h2>
+                <div class="level-row">
+                  <span class="badge badge--level" id="profileLevel">Nivel 1</span>
+                  <span class="muted" id="profileXp">0 / 100 XP</span>
+                </div>
+              </div>
+            </div>
+            <div class="xpbar"><div class="xpbar__fill" id="xpFill"></div></div>
+            <div class="stats">
+              <div class="stat"><span class="stat__num" id="statRating">1000</span><span class="stat__lbl">Ranking</span></div>
+              <div class="stat"><span class="stat__num" id="statWins">0</span><span class="stat__lbl">Ganadas</span></div>
+              <div class="stat"><span class="stat__num" id="statLosses">0</span><span class="stat__lbl">Perdidas</span></div>
+              <div class="stat"><span class="stat__num" id="statDraws">0</span><span class="stat__lbl">Empates</span></div>
+              <div class="stat"><span class="stat__num" id="statStreak">0</span><span class="stat__lbl">Racha</span></div>
+            </div>
+            <button id="playBtn" class="btn btn--primary btn--block btn--lg">Buscar partida</button>
+            <div id="searching" class="searching hidden">
+              <div class="spinner spinner--sm"></div>
+              <span>Buscando rival de tu nivel…</span>
+              <button id="cancelSearch" class="btn btn--ghost btn--sm">Cancelar</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 class="card-title">Logros</h3>
+            <div id="achievements" class="achievements"></div>
+          </div>
+
+          <div class="card">
+            <h3 class="card-title">Clasificación</h3>
+            <ol id="leaderboard" class="leaderboard"></ol>
+          </div>
+
+          <div class="card">
+            <h3 class="card-title">Historial reciente</h3>
+            <ul id="history" class="history"></ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Match -->
+      <div id="match" class="view hidden">
+        <div class="card match-card">
+          <div class="versus">
+            <div class="vs-player vs-player--you">
+              <span class="vs-symbol" id="youSymbol">X</span>
+              <span class="vs-name" id="youName">Tú</span>
+              <span class="muted" id="youRating">1000</span>
+            </div>
+            <span class="vs-sep">VS</span>
+            <div class="vs-player vs-player--opp">
+              <span class="vs-symbol" id="oppSymbol">O</span>
+              <span class="vs-name" id="oppName">Rival</span>
+              <span class="muted" id="oppRating">1000</span>
+            </div>
+          </div>
+          <p id="matchStatus" class="status">—</p>
+          <div id="board" class="board">
+            <button class="cell" data-index="0"></button>
+            <button class="cell" data-index="1"></button>
+            <button class="cell" data-index="2"></button>
+            <button class="cell" data-index="3"></button>
+            <button class="cell" data-index="4"></button>
+            <button class="cell" data-index="5"></button>
+            <button class="cell" data-index="6"></button>
+            <button class="cell" data-index="7"></button>
+            <button class="cell" data-index="8"></button>
+          </div>
+          <button id="leaveMatch" class="btn btn--danger btn--sm">Abandonar</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Result overlay -->
+  <div id="overlay" class="overlay hidden">
+    <div class="card overlay__card">
+      <h2 id="overlayTitle">—</h2>
+      <p id="overlayRating" class="overlay__rating"></p>
+      <div id="overlayAchievements" class="overlay__achievements"></div>
+      <div class="overlay__actions">
+        <button id="againBtn" class="btn btn--primary">Buscar otra</button>
+        <button id="homeBtn" class="btn btn--ghost">Volver al inicio</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

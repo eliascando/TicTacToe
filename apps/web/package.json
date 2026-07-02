@@ -1,0 +1,7 @@
+{
+  "name": "@ttt/web",
+  "version": "1.0.0",
+  "description": "Cliente web (SPA estática) servido por @ttt/server",
+  "private": true,
+  "license": "MIT"
+}
