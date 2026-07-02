@@ -29,6 +29,10 @@ const config = {
     process.env.WEB_DIR ||
     path.resolve(__dirname, '..', '..', 'web', 'public'),
   bcryptRounds: 12,
+  // Scaling: when set, enables shared state across instances.
+  databaseUrl: process.env.DATABASE_URL || null, // Postgres (shared DB)
+  redisUrl: process.env.REDIS_URL || null, // Redis (adapter + queue/rooms)
+  instanceId: process.env.INSTANCE_ID || `${process.pid}`,
 };
 
 module.exports = config;

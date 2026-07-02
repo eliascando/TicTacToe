@@ -9,6 +9,8 @@ const rateLimit = require('express-rate-limit');
 const { Server } = require('socket.io');
 
 const config = require('./config');
+const repo = require('./repository');
+const { initStore } = require('./store');
 const { router } = require('./routes');
 const { registerGame } = require('./game');
 
@@ -16,7 +18,6 @@ const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
-// Security headers with a CSP tailored to a same-origin app (no external assets).
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -38,21 +39,14 @@ app.use(
 app.use(express.json({ limit: '16kb' }));
 app.use(cookieParser());
 
-// Broad rate limit as a safety net across the API.
 app.use(
   '/api',
-  rateLimit({
-    windowMs: 60 * 1000,
-    max: 120,
-    standardHeaders: true,
-    legacyHeaders: false,
-  })
+  rateLimit({ windowMs: 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false })
 );
 
 app.use('/api', router);
-app.get('/api/health', (req, res) => res.json({ ok: true }));
+app.get('/api/health', (req, res) => res.json({ ok: true, instance: config.instanceId }));
 
-// Serve the built web client (single-service deployment).
 app.use(express.static(config.webDir));
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) return next();
@@ -61,11 +55,36 @@ app.get('*', (req, res, next) => {
 
 const server = http.createServer(app);
 const io = new Server(server);
-registerGame(io);
 
-server.listen(config.port, () => {
-  // eslint-disable-next-line no-console
-  console.log(`Tres en Raya online escuchando en http://localhost:${config.port}`);
+async function start() {
+  await repo.init();
+  await initStore();
+
+  // Horizontal scaling: share Socket.IO broadcasts across instances via Redis.
+  if (config.redisUrl) {
+    const { createClient } = require('redis');
+    const { createAdapter } = require('@socket.io/redis-adapter');
+    const pubClient = createClient({ url: config.redisUrl });
+    const subClient = pubClient.duplicate();
+    await Promise.all([pubClient.connect(), subClient.connect()]);
+    io.adapter(createAdapter(pubClient, subClient));
+    console.log('[scale] Socket.IO Redis adapter activo');
+  }
+
+  registerGame(io);
+
+  server.listen(config.port, () => {
+    const mode = config.redisUrl ? 'escalable (Redis)' : 'single-instance';
+    const db = config.databaseUrl ? 'Postgres' : 'SQLite';
+    console.log(
+      `Tres en Raya online [${mode}, ${db}] escuchando en http://localhost:${config.port} (instancia ${config.instanceId})`
+    );
+  });
+}
+
+start().catch((err) => {
+  console.error('Fallo al iniciar el servidor:', err);
+  process.exit(1);
 });
 
 module.exports = { app, server };

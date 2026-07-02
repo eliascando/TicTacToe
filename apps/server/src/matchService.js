@@ -14,40 +14,41 @@ function outcomeFor(symbol, winner) {
 }
 
 function applyOutcomeToUser(user, outcome) {
-  const updated = { ...user };
-  updated.xp += xpForResult(outcome);
+  const u = { ...user };
+  u.xp += xpForResult(outcome);
   if (outcome === 'win') {
-    updated.wins += 1;
-    updated.current_streak += 1;
-    updated.best_streak = Math.max(updated.best_streak, updated.current_streak);
+    u.wins += 1;
+    u.current_streak += 1;
+    u.best_streak = Math.max(u.best_streak, u.current_streak);
   } else if (outcome === 'loss') {
-    updated.losses += 1;
-    updated.current_streak = 0;
+    u.losses += 1;
+    u.current_streak = 0;
   } else {
-    updated.draws += 1;
-    updated.current_streak = 0;
+    u.draws += 1;
+    u.current_streak = 0;
   }
-  return updated;
+  return u;
 }
 
-function statsForAchievements(user) {
+function statsForAchievements(u) {
   return {
-    games: user.wins + user.losses + user.draws,
-    wins: user.wins,
-    losses: user.losses,
-    draws: user.draws,
-    bestStreak: user.best_streak,
-    currentStreak: user.current_streak,
-    rating: user.rating,
-    xp: user.xp,
+    games: u.wins + u.losses + u.draws,
+    wins: u.wins,
+    losses: u.losses,
+    draws: u.draws,
+    bestStreak: u.best_streak,
+    currentStreak: u.current_streak,
+    rating: u.rating,
+    xp: u.xp,
   };
 }
 
-function newAchievements(user) {
+async function grantNewAchievements(tx, user) {
   const qualified = evaluateAchievements(statsForAchievements(user));
   const earned = [];
   for (const key of qualified) {
-    if (repo.addAchievement(user.id, key)) {
+    // eslint-disable-next-line no-await-in-loop
+    if (await tx.addAchievement(user.id, key)) {
       const def = ACHIEVEMENTS_BY_KEY[key];
       if (def) earned.push({ key: def.key, name: def.name, icon: def.icon, description: def.description });
     }
@@ -55,28 +56,23 @@ function newAchievements(user) {
   return earned;
 }
 
-/**
- * Persists a finished match: Elo, XP, streaks, achievements and history.
- * Runs atomically. Returns per-player result payloads.
- */
-function finalizeMatch({ xUserId, oUserId, winner }) {
-  const apply = repo.runInTransaction(() => {
-    const xUser = repo.getUserById(xUserId);
-    const oUser = repo.getUserById(oUserId);
+async function doFinalize({ xUserId, oUserId, winner }) {
+  return repo.withTransaction(async (tx) => {
+    const xUser = await tx.getUserById(xUserId);
+    const oUser = await tx.getUserById(oUserId);
     if (!xUser || !oUser) throw new Error('Jugador no encontrado');
 
     const scoreX = winner === 'draw' ? 0.5 : winner === 'X' ? 1 : 0;
     const { newA, newB, changeA, changeB } = computeElo(xUser.rating, oUser.rating, scoreX);
 
-    let updatedX = applyOutcomeToUser(xUser, outcomeFor('X', winner));
-    let updatedO = applyOutcomeToUser(oUser, outcomeFor('O', winner));
+    const updatedX = applyOutcomeToUser(xUser, outcomeFor('X', winner));
+    const updatedO = applyOutcomeToUser(oUser, outcomeFor('O', winner));
     updatedX.rating = newA;
     updatedO.rating = newB;
 
-    repo.updateUserStats(updatedX);
-    repo.updateUserStats(updatedO);
-
-    repo.recordMatch({
+    await tx.updateUserStats(updatedX);
+    await tx.updateUserStats(updatedO);
+    await tx.recordMatch({
       player_x_id: xUserId,
       player_o_id: oUserId,
       winner,
@@ -84,25 +80,24 @@ function finalizeMatch({ xUserId, oUserId, winner }) {
       o_rating_change: changeB,
     });
 
-    const xAchievements = newAchievements(updatedX);
-    const oAchievements = newAchievements(updatedO);
+    const xAch = await grantNewAchievements(tx, updatedX);
+    const oAch = await grantNewAchievements(tx, updatedO);
 
     return {
-      X: {
-        profile: repo.toProfile(repo.getUserById(xUserId)),
-        ratingChange: changeA,
-        outcome: outcomeFor('X', winner),
-        newAchievements: xAchievements,
-      },
-      O: {
-        profile: repo.toProfile(repo.getUserById(oUserId)),
-        ratingChange: changeB,
-        outcome: outcomeFor('O', winner),
-        newAchievements: oAchievements,
-      },
+      X: { profile: repo.toProfile(updatedX), ratingChange: changeA, outcome: outcomeFor('X', winner), newAchievements: xAch },
+      O: { profile: repo.toProfile(updatedO), ratingChange: changeB, outcome: outcomeFor('O', winner), newAchievements: oAch },
     };
   });
-  return apply();
+}
+
+// Serialize finalizations within this instance so overlapping transactions
+// never interleave (important for the synchronous SQLite driver).
+let lock = Promise.resolve();
+function finalizeMatch(args) {
+  const run = () => doFinalize(args);
+  const result = lock.then(run, run);
+  lock = result.then(() => {}, () => {});
+  return result;
 }
 
 module.exports = { finalizeMatch };

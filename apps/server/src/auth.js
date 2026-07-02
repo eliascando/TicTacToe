@@ -29,14 +29,14 @@ function clearAuthCookie(res) {
 }
 
 /** Express middleware: requires a valid auth cookie, attaches req.user. */
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const token = req.cookies && req.cookies[config.cookieName];
   if (!token) {
     return res.status(401).json({ error: 'No autenticado.' });
   }
   try {
     const payload = verifyToken(token);
-    const user = repo.getUserById(payload.sub);
+    const user = await repo.getUserById(payload.sub);
     if (!user) {
       return res.status(401).json({ error: 'Sesión inválida.' });
     }

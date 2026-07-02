@@ -33,10 +33,11 @@ const credentialsSchema = z.object({
     .max(100, 'La contraseña es demasiado larga.'),
 });
 
-function buildFullProfile(user) {
+async function buildFullProfile(user) {
   const profile = repo.toProfile(user);
-  profile.achievements = repo.getAchievementRows(user.id);
-  profile.recentMatches = repo.getRecentMatches(user.id).map((m) => ({
+  profile.achievements = await repo.getAchievementRows(user.id);
+  const matches = await repo.getRecentMatches(user.id);
+  profile.recentMatches = matches.map((m) => ({
     id: m.id,
     xName: m.x_name,
     oName: m.o_name,
@@ -48,32 +49,34 @@ function buildFullProfile(user) {
   return profile;
 }
 
-router.post('/auth/register', authLimiter, (req, res) => {
+// Wraps async handlers so rejected promises become Express errors.
+const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
+
+router.post('/auth/register', authLimiter, wrap(async (req, res) => {
   const parsed = credentialsSchema.safeParse(req.body || {});
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0].message });
   }
   const { username, password } = parsed.data;
 
-  if (repo.getUserByUsername(username)) {
+  if (await repo.getUserByUsername(username)) {
     return res.status(409).json({ error: 'Ese nombre de usuario ya existe.' });
   }
 
   const passwordHash = bcrypt.hashSync(password, config.bcryptRounds);
-  const user = repo.createUser(username, passwordHash);
-  const token = auth.signToken(user);
-  auth.setAuthCookie(res, token);
-  return res.status(201).json({ user: buildFullProfile(user) });
-});
+  const user = await repo.createUser(username, passwordHash);
+  auth.setAuthCookie(res, auth.signToken(user));
+  return res.status(201).json({ user: await buildFullProfile(user) });
+}));
 
-router.post('/auth/login', authLimiter, (req, res) => {
+router.post('/auth/login', authLimiter, wrap(async (req, res) => {
   const parsed = credentialsSchema.safeParse(req.body || {});
   if (!parsed.success) {
     return res.status(400).json({ error: 'Usuario o contraseña inválidos.' });
   }
   const { username, password } = parsed.data;
 
-  const user = repo.getUserByUsername(username);
+  const user = await repo.getUserByUsername(username);
   // Always run a comparison to reduce user-enumeration timing differences.
   const hash = user ? user.password_hash : '$2a$12$'.padEnd(60, '.');
   const ok = bcrypt.compareSync(password, hash);
@@ -81,23 +84,22 @@ router.post('/auth/login', authLimiter, (req, res) => {
     return res.status(401).json({ error: 'Usuario o contraseña incorrectos.' });
   }
 
-  const token = auth.signToken(user);
-  auth.setAuthCookie(res, token);
-  return res.json({ user: buildFullProfile(user) });
-});
+  auth.setAuthCookie(res, auth.signToken(user));
+  return res.json({ user: await buildFullProfile(user) });
+}));
 
 router.post('/auth/logout', (req, res) => {
   auth.clearAuthCookie(res);
   return res.json({ ok: true });
 });
 
-router.get('/me', auth.requireAuth, (req, res) => {
-  return res.json({ user: buildFullProfile(req.user) });
-});
+router.get('/me', auth.requireAuth, wrap(async (req, res) => {
+  return res.json({ user: await buildFullProfile(req.user) });
+}));
 
-router.get('/leaderboard', (req, res) => {
-  return res.json({ leaderboard: repo.getLeaderboard() });
-});
+router.get('/leaderboard', wrap(async (req, res) => {
+  return res.json({ leaderboard: await repo.getLeaderboard() });
+}));
 
 router.get('/achievements', (req, res) => {
   return res.json({ catalog: publicCatalog() });
