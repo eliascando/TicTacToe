@@ -1,0 +1,23 @@
+# Despliegue "un clic" en Render (https://render.com) como un ÚNICO servicio.
+# Render ofrece una experiencia tipo Vercel pero con un proceso Node persistente,
+# necesario para WebSockets (Socket.IO) y para el matchmaking en memoria.
+services:
+  - type: web
+    name: tres-en-raya-online
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: JWT_SECRET
+        generateValue: true # Render genera un secreto seguro automáticamente
+      - key: DB_FILE
+        value: /app/data/tictactoe.db
+    disk:
+      name: data
+      mountPath: /app/data # Persiste la base de datos SQLite entre despliegues
+      sizeGB: 1
