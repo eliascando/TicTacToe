@@ -3,6 +3,9 @@
 Juego de Tres en Raya (TicTacToe) **multijugador online** con cuentas de usuario,
 emparejamiento por nivel, ranking ELO, progresión (XP/niveles) y logros.
 
+🔴 **Demo en vivo:** https://tres-en-raya-online-ezrp.onrender.com (Render, plan gratuito;
+la primera carga puede tardar ~1 min si el servicio estaba dormido).
+
 Todo vive en un **monorepo** y se despliega como **un único servicio** (API HTTP +
 WebSocket + cliente web estático, servidos por el mismo proceso Node).
 
